@@ -87,16 +87,56 @@ double buscaSerial(int *contador_serial) {
 }
 
 void* runner(void* param) {
-
+	//não testei poruque ta dando erro no VS e eu to arrumando
 	(void)param;
-
-	int contador_local = 0;
-
+	//depois tirar os print
+    int threadId=*(int*)param;//codigo para pegar o id da thread (cada uma tem um identificador unico)
+	int contador_local = 0; 
+    int blocoAtual = 0;
 	while (1) {
+		int bloco;
+        pthread_mutex_lock(&mutex);
+        bloco=blocoAtual;     // pega o número do próximo bloco
+        blocoAtual=blocoAtual+1;           // avança para o próximo bloco
+        pthread_mutex_unlock(&mutex);
+        //criando os blocos para cada thread trabalhar
+        int blocoLinha=TAMANHO_MATRIZ/TAMANHO_MACRO_BLOCO;
+        int blocoColuna=TAMANHO_MATRIZ/TAMANHO_MACRO_BLOCO;
+        int totalBlocos=blocoLinha*blocoColuna;
+        if(bloco>=blocoLinha*blocoColuna) {
+            //verifica se ja acabou todos os blocos
+			printf("Thread %d terminou\n", threadId);
+            break;
+        }
+        int linhaInicio=(bloco/blocoColuna)*TAMANHO_MACRO_BLOCO;
+        int colunaInicio=(bloco%blocoColuna)*TAMANHO_MACRO_BLOCO;
+		//só para ver se a divisão ta correta e essas coisas depois tirar isso daqui
+		printf("Thread %d pegou bloco %d (linha %d a %d, coluna %d a %d)\n",
+               threadId,
+               bloco,
+               linhaInicio,
+               linhaInicio+TAMANHO_MACRO_BLOCO-1,
+               colunaInicio,
+               colunaInicio+TAMANHO_MACRO_BLOCO-1);
 
+        contador_local=0;
+
+		//Percorre o macro bloco e conta os primos
+		//o começei o e copilot me deu essa resposta como sugestão
+		for(int i=linhaInicio;i<linhaInicio+TAMANHO_MACRO_BLOCO && i<TAMANHO_MATRIZ;i++) {
+			for(int j=colunaInicio;j<colunaInicio+TAMANHO_MACRO_BLOCO && j<TAMANHO_MATRIZ;j++) {
+				if(ehPrimo(matriz[i][j])) {
+					contador_local++;
+				}
+			}
+		}
+		//atualiza o contador global
 		pthread_mutex_lock(&mutex);
-		contador += contador_local;
+		contador+=contador_local;
 		pthread_mutex_unlock(&mutex);
+		//pthread_mutex_lock(&mutex);
+		//contador += contador_local;
+		//pthread_mutex_unlock(&mutex);
 	}
 
 	return NULL;
