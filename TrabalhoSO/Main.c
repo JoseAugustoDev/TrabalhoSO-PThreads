@@ -10,80 +10,56 @@
 #include <time.h>
 
 #define INTERVALO_MATRIZ 31999
-#define TAMANHO_MATRIZ 10000 // 22000 foi o maior que consegui rodar na minha maquina
-#define TAMANHO_MACRO_BLOCO 2
-#define NUM_THREADS 6
+#define TAMANHO_MATRIZ 15000
+#define TAMANHO_MACRO_BLOCO 250
+#define NUM_THREADS 12
 
-int** matriz;
+
+int blocoAtual = 0;
+int **matriz;
 int contador = 0;
 
 pthread_mutex_t mutex;
 
 int ehPrimo(int n);
 
-int** alocar_matriz(int linhas, int colunas) {
-	int** matriz;
+int** Alocar_matriz_int(int m, int n)
+{
+	int** v;
 	int i;
-
-	if (linhas < 1 || colunas < 1) {
-		printf("Tamanho invalido para a matriz\n");
-		return (NULL);
+	if (m < 1 || n < 1) {
+		printf("** Erro: Parametro invalido **\n");
+		return NULL;
 	}
 
-	matriz = calloc(linhas, sizeof(int*));
-
-	if (matriz == NULL) {
-		printf("Erro ao alocar memoria para a matriz\n");
-		return (NULL);
+	v = (int**)calloc(m, sizeof(int*));
+	if (v == NULL) {
+		printf("** Erro: Memoria Insuficiente **\n");
+		return NULL;
 	}
 
-	for (i = 0; i < linhas; i++)
-	{
-		matriz[i] = calloc(colunas, sizeof(int));
-		if (matriz[i] == NULL) {
-			printf("Erro ao alocar memoria para a matriz\n");
-			return (NULL);
+	for (i = 0; i < m; i++) {
+		v[i] = (int*)calloc(n, sizeof(int));
+		if (v[i] == NULL) {
+			printf("** Erro: Memoria Insuficiente **\n");
+			return NULL;
 		}
 	}
 
-	return (matriz);
+	return v;
 }
 
-int **liberar_matriz(int linhas, int colunas, int** matriz) {
+int** Liberar_matriz_int(int m, int n, int** v)
+{
 	int i;
-	if (matriz == NULL) {
-		return (NULL);
+	if (v == NULL) return NULL;
+	if (m < 1 || n < 1) {
+		printf("** Erro: Parametro invalido **\n");
+		return v;
 	}
-
-	if (linhas < 1 || colunas < 1) {
-		printf("Erro: Parametro Invalido\n");
-		return (matriz);
-	}
-
-	for (i = 0; i < linhas; i++) free(matriz[i]);
-	free(matriz);
-
-	return (NULL);
-}
-
-double buscaSerial(int *contador_serial) {
-	clock_t inicio, fim;
-
-	int cont = 0;
-
-	inicio = clock();
-	for (int i = 0; i < TAMANHO_MATRIZ; i++) {
-		for (int j = 0; j < TAMANHO_MATRIZ; j++) {
-			if (ehPrimo(matriz[i][j])) {
-				cont++;
-			}
-		}
-	}
-	fim = clock();
-
-	*contador_serial = cont;
-
-	return (double)(fim - inicio) / CLOCKS_PER_SEC;
+	for (i = 0; i < m; i++) free(v[i]);
+	free(v);
+	return NULL;
 }
 
 void* runner(void* param) {
@@ -91,40 +67,49 @@ void* runner(void* param) {
 	(void)param;
 	//depois tirar os print
     int threadId=*(int*)param;//codigo para pegar o id da thread (cada uma tem um identificador unico)
-	int contador_local = 0; 
-    int blocoAtual = 0;
+	int contador_local = 0;
+
+	int blocoLinha = TAMANHO_MATRIZ / TAMANHO_MACRO_BLOCO;
+	int blocoColuna = TAMANHO_MATRIZ / TAMANHO_MACRO_BLOCO;
+
+	int totalBlocos = blocoLinha * blocoColuna;
+
 	while (1) {
 		int bloco;
         pthread_mutex_lock(&mutex);
         bloco=blocoAtual;     // pega o número do próximo bloco
         blocoAtual=blocoAtual+1;           // avança para o próximo bloco
         pthread_mutex_unlock(&mutex);
+
         //criando os blocos para cada thread trabalhar
-        int blocoLinha=TAMANHO_MATRIZ/TAMANHO_MACRO_BLOCO;
-        int blocoColuna=TAMANHO_MATRIZ/TAMANHO_MACRO_BLOCO;
-        int totalBlocos=blocoLinha*blocoColuna;
-        if(bloco>=blocoLinha*blocoColuna) {
+
+        if(bloco>=totalBlocos) {
             //verifica se ja acabou todos os blocos
-			printf("Thread %d terminou\n", threadId);
+			/*printf("Thread %d terminou\n", threadId);*/
             break;
         }
         int linhaInicio=(bloco/blocoColuna)*TAMANHO_MACRO_BLOCO;
         int colunaInicio=(bloco%blocoColuna)*TAMANHO_MACRO_BLOCO;
 		//só para ver se a divisão ta correta e essas coisas depois tirar isso daqui
-		printf("Thread %d pegou bloco %d (linha %d a %d, coluna %d a %d)\n",
+		/*printf("Thread %d pegou bloco %d (linha %d a %d, coluna %d a %d)\n",
                threadId,
                bloco,
                linhaInicio,
                linhaInicio+TAMANHO_MACRO_BLOCO-1,
                colunaInicio,
-               colunaInicio+TAMANHO_MACRO_BLOCO-1);
+               colunaInicio+TAMANHO_MACRO_BLOCO-1);*/
 
         contador_local=0;
 
+		int linhaFim = linhaInicio + TAMANHO_MACRO_BLOCO;
+		if (linhaFim > TAMANHO_MATRIZ) linhaFim = TAMANHO_MATRIZ;
+
+		int colunaFim = colunaInicio + TAMANHO_MACRO_BLOCO;
+		if (colunaFim > TAMANHO_MATRIZ) colunaFim = TAMANHO_MATRIZ;
+
 		//Percorre o macro bloco e conta os primos
-		//o começei o e copilot me deu essa resposta como sugestão
-		for(int i=linhaInicio;i<linhaInicio+TAMANHO_MACRO_BLOCO && i<TAMANHO_MATRIZ;i++) {
-			for(int j=colunaInicio;j<colunaInicio+TAMANHO_MACRO_BLOCO && j<TAMANHO_MATRIZ;j++) {
+		for(int i=linhaInicio;i < linhaFim;i++) {
+			for(int j=colunaInicio;j < colunaFim;j++) {
 				if(ehPrimo(matriz[i][j])) {
 					contador_local++;
 				}
@@ -134,18 +119,16 @@ void* runner(void* param) {
 		pthread_mutex_lock(&mutex);
 		contador+=contador_local;
 		pthread_mutex_unlock(&mutex);
-		//pthread_mutex_lock(&mutex);
-		//contador += contador_local;
-		//pthread_mutex_unlock(&mutex);
 	}
 
 	return NULL;
 }
 
-double buscaParalela(int num_threads, int *contador_paralelo) {
+double buscaParalela(int *contador_paralelo) {
 	clock_t inicio, fim;
 
 	pthread_t workers[NUM_THREADS];
+	int thread_ids[NUM_THREADS];
 
 	pthread_mutex_init(&mutex, NULL);
 
@@ -153,8 +136,11 @@ double buscaParalela(int num_threads, int *contador_paralelo) {
 
 	for (int i = 0; i < NUM_THREADS; i++)
 	{
-		pthread_t tid;
-		pthread_create(&tid, NULL, runner, NULL);
+		thread_ids[i] = i;
+		if (pthread_create(&workers[i], NULL, runner, &thread_ids[i]) != 0) {
+			perror("Erro ao criar a thread");
+			exit(1);
+		}
 	}
 
 	for (int i = 0; i < NUM_THREADS; i++)
@@ -170,13 +156,28 @@ double buscaParalela(int num_threads, int *contador_paralelo) {
 	return (double)(fim - inicio) / CLOCKS_PER_SEC;
 }
 
-void* runner(void* param);
+
+double buscaSerial(int* contador_serial) {
+	clock_t inicio, fim;
+
+	int cont = 0;
+
+	inicio = clock();
+	for (int i = 0; i < TAMANHO_MATRIZ; i++) {
+		for (int j = 0; j < TAMANHO_MATRIZ; j++) {
+			if (ehPrimo(matriz[i][j])) cont++;
+		}
+	}
+	fim = clock();
+
+	*contador_serial = cont;
+
+	return (double)(fim - inicio) / CLOCKS_PER_SEC;
+}
 
 int main(int argc, char* argv[]) {
 
-	int** matriz;
-
-	matriz = alocar_matriz(TAMANHO_MATRIZ, TAMANHO_MATRIZ);
+	matriz = Alocar_matriz_int(TAMANHO_MATRIZ, TAMANHO_MATRIZ);
 	if (!matriz) return (1);
 
 	srand(time(NULL));
@@ -195,24 +196,23 @@ int main(int argc, char* argv[]) {
 	printf("Tempo: %.5f", tempo_serial);
 
 	int contador_paralelo = 0;
-	double tempo_paralelo = buscaParalela(NUM_THREADS, &contador_paralelo);
+	double tempo_paralelo = buscaParalela(&contador_paralelo);
 	double speedup = tempo_serial / tempo_paralelo;
 
-	printf("Quantidade de threads: %d\n", NUM_THREADS);
-	printf("\nTotal de numeros primos (paralelo): %d\n", contador_paralelo);
+	printf("\nQuantidade de threads: %d\n", NUM_THREADS);
+	printf("Total de numeros primos (paralelo): %d\n", contador_paralelo);
 	printf("Tempo: %.5f\n", tempo_paralelo);
 	printf("Speedup: %.5f\n", speedup);
 
-	matriz = liberar_matriz(TAMANHO_MATRIZ, TAMANHO_MATRIZ, matriz);
+	matriz = Liberar_matriz_int(TAMANHO_MATRIZ, TAMANHO_MATRIZ, matriz);
 
 	return 0;
 }
 
 int ehPrimo(int n) {
 
-	if (n < 2) return 0;
+	if (n < 2 || n % 2 == 0) return 0;
 	if (n == 2) return 1;
-	if (n % 2 == 0) return 0;
 
 	int sqrt_n = (int)floor(sqrt(n));
 
