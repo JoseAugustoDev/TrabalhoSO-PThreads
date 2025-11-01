@@ -1,4 +1,5 @@
 //Autores José Augusto e Letícia Comissário da Silva
+
 #pragma once
 #define _CRT_SECURE_NO_WARNINGS 1
 #define _WINSOCK_DEPRECATED_NO_WARNINGS 1
@@ -9,12 +10,12 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+
 //----------------------------------------------------------------------------------------------------------------------//
 #define INTERVALO_MATRIZ 31999
-#define TAMANHO_MATRIZ 15000
-#define TAMANHO_MACRO_BLOCO 250 //tamanho para os teste
-//#define TAMANHO_MACRO_BLOCO	250	//500 //tamanho ideial
-#define NUM_THREADS 12
+#define TAMANHO_MATRIZ 10000
+#define TAMANHO_MACRO_BLOCO 500 
+#define NUM_THREADS 300
 //----------------------------------------------------------------------------------------------------------------------//
 int blocoAtual = 0; //variavel global para controlar o bloco atual
 int** matriz; 
@@ -81,9 +82,10 @@ void* runner(void* param) {
 			break;
 		}
 		int linhaInicio=(bloco/blocoColuna)*TAMANHO_MACRO_BLOCO;//calcula a linha inicial do bloco
-		int colunaInicio=(bloco%blocoColuna)*TAMANHO_MACRO_BLOCO;//calcula a coluna inicial do bloco
+		int colunaInicio=(bloco%blocoColuna)*TAMANHO_MACRO_BLOCO;//calcula a coluna inicial do bloc
 		//zera o contador porque cada bloco tem seu proprio 
 		contador_local=0;
+
 		//calcula o fim do bloco
 		int linhaFim=linhaInicio+TAMANHO_MACRO_BLOCO;
 		//verifica se o fim do bloco ultrapassa o tamanho da matriz
@@ -141,7 +143,7 @@ double buscaParalela(int* contador_paralelo) {
 	}
 
 	fim = clock();
-	// Destroi o mutex
+
 	pthread_mutex_destroy(&mutex);
 
 	*contador_paralelo = contador;
@@ -173,6 +175,8 @@ int main(int argc, char* argv[]) {
 	//definir a semente
 	srand(time(NULL));
 
+	printf("Preenchendo matriz %dx%d com numeros aleatorios de 1 a %d\n", TAMANHO_MATRIZ, TAMANHO_MATRIZ, INTERVALO_MATRIZ);
+
 	// Preenchendo matriz com numeros aleatorios
 	for (int i = 0; i < TAMANHO_MATRIZ; i++) {
 		for (int j = 0; j < TAMANHO_MATRIZ; j++) {
@@ -180,11 +184,17 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
+	printf("\n");
+
+	printf("Iniciando busca serial\n");
+
 	int contador_serial=0;
-	double tempo_serial=buscaSerial(&contador_serial);
+	double tempo_serial = buscaSerial(&contador_serial);
 
 	printf("Total de numeros primos (serial): %d\n", contador_serial);
-	printf("Tempo: %.5f", tempo_serial);
+	printf("Tempo: %.5f\n", tempo_serial);
+
+	printf("\nIniciando busca paralelo\n");
 
 	int contador_paralelo = 0;
 	double tempo_paralelo = buscaParalela(&contador_paralelo);
